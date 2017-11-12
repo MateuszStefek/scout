@@ -1,5 +1,5 @@
-import { Card } from './card';
-import { GamePlayer, Game } from '@scout/game';
+import { Card } from '@dominion/card';
+import { GamePlayer, Game } from '@dominion/game';
 
 export abstract class StandardTreasure extends Card {
   constructor(name: string, private payment: number) {

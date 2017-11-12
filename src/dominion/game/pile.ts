@@ -1,4 +1,4 @@
-import { Card, CardConstructor } from '@scout/cards';
+import { Card, CardConstructor } from '@dominion/card';
 
 export class Pile {
   private cards: Card[] = new Array();
@@ -10,6 +10,10 @@ export class Pile {
       pile.put(new cardType())
     }
     return pile;
+  }
+
+  allCards() {
+    return this.cards;
   }
 
   put(card: Card) {

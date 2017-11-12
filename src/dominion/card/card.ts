@@ -1,5 +1,6 @@
-import {GamePlayer, Game} from '@scout/game';
+import { GamePlayer, Game, Pile } from '@dominion/game';
 import * as _ from 'lodash';
+import { CardPile } from './card.pile';
 
 export abstract class Card {
 
@@ -13,6 +14,14 @@ export abstract class Card {
 
   isAction() : boolean {
     return false;
+  }
+
+  isVictory() : boolean {
+    return false;
+  }
+
+  scoreValue(): number {
+    return 0;
   }
 
   *play(playerState: GamePlayer) {

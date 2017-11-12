@@ -1,16 +1,17 @@
-import { Player } from '@scout/game/player';
-import { Pile } from '@scout/game/pile';
+import { Player } from '@dominion/game/player';
+import { Pile } from '@dominion/game/pile';
+import { KingdomGenerator } from '@dominion/game/generator';
+import { Card, CardConstructor } from '@dominion/card';
 import {
-  Card, CardConstructor,
   Copper, Silver, Gold, Platinum,
   Curse,
   Estate, Duchy, Province, Colony,
-  Smithy
-} from '@scout/cards';
-
-var arrayShuffle = require('array-shuffle');
+  Smithy,
+} from '@dominion/cards';
+import * as arrayShuffle from 'array-shuffle';
 
 export class GamePlayer {
+  nextPlayer: GamePlayer;
 
   hand: Card[] = new Array();
   deck: Card[] = new Array();
@@ -23,6 +24,29 @@ export class GamePlayer {
 
   constructor(public owner: Player, public game: Game) {
 
+  }
+
+  *eachOtherPlayer() {
+    var other = this.nextPlayer;
+    while (other !== this) {
+      yield other;
+      other = other.nextPlayer;
+    }
+  }
+
+  *allOwnedCards() {
+    yield* this.hand;
+    yield* this.discard;
+    yield* this.deck;
+    yield* this.playArea;
+  }
+
+  score(): number {
+    var c = 0;
+    for (let card of this.allOwnedCards()) {
+      c += card.scoreValue();
+    }
+    return c;
   }
 
   *drawCard() {
@@ -84,37 +108,53 @@ export class GamePlayer {
     }
   }
 
-  canBuy(cardType: CardConstructor): Pile {
+  canBuy(cardType: CardConstructor): boolean {
     if (this.buys <= 0) {
-      return undefined;
+      return false;
     }
-    for (let pile of this.game.kingdomPiles) {
-      if (pile.isEmpty()) {
-        continue;
-      }
-      const topCard = pile.topCard();
-      if (!(topCard instanceof cardType)) {
-        continue;
-      }
-      if (this.game.buyCost(topCard) >= this.coin) {
-        return undefined;
-      }
-      return pile;
+    let pile = this.game.pileOf(cardType);
+    if (!pile) {
+      return false;
     }
-    return undefined;
+    if (pile.isEmpty()) {
+      return false;
+    }
+    const topCard = pile.topCard();
+    if (!(topCard instanceof cardType)) {
+      return false;
+    }
+    if (this.game.buyCost(topCard) >= this.coin) {
+      return false;
+    }
+    return true;
   }
 
-  *buy(pile: Pile) {
-    const card = pile.removeTop();
+  *buy(cardType: CardConstructor) {
+    const pile = this.game.pileOf(cardType);
+    if (!pile || pile.isEmpty() || !(pile.topCard() instanceof cardType)) {
+      return;
+    }
+    const card = pile.topCard();
     this.coin -= this.game.buyCost(card);
     this.buys--;
     yield `Player ${this.owner} buys ${card}`;
-    yield* this.gain(card);
+    yield* this.gainFromPile(pile);
   }
 
-  *gain(card: Card) {
+  *gain(cardType: CardConstructor) {
+    const pile = this.game.pileOf(cardType);
+    if (pile) {
+      yield* this.gainFromPile(pile);
+    }
+  }
+
+  *gainFromPile(pile: Pile) {
+    if (pile.isEmpty()) {
+      return;
+    }
+    const card = pile.removeTop();
     this.discard.push(card);
-    yield(`Player ${this.owner} gains ${card}`);
+    yield (`Player ${this.owner} gains ${card}`);
   }
 
 }
@@ -122,59 +162,30 @@ export class GamePlayer {
 export class Game {
   players: GamePlayer[];
   kingdomPiles: Pile[] = new Array();
+  private pilesPerCard: Map<CardConstructor, Pile> = new Map();
 
   constructor(players: Player[]) {
+    const numberOfPlayers = players.length;
     this.players = players.map(player => new GamePlayer(player, this))
+    for (let i = 0; i < numberOfPlayers; i++) {
+      this.players[i].nextPlayer = this.players[(i + 1) % numberOfPlayers];
+    }
   }
 
-  *play(): IterableIterator<String> {
-    yield* this.selectKingdom();
+  addPile(pile: Pile) {
+    this.kingdomPiles.push(pile);
+    for (let card of pile.allCards()) {
+      this.pilesPerCard.set(<CardConstructor>card.constructor, pile);
+    }
+  }
+
+  pileOf(cardType: CardConstructor): Pile {
+    return this.pilesPerCard.get(cardType);
+  }
+
+  *play(generator: KingdomGenerator): IterableIterator<String> {
+    yield* generator.initializeGame(this);
     yield* this.playGame();
-  }
-
-  *selectKingdom() {
-    const kingdom: CardConstructor[] = new Array();
-
-    const isColonyGame = false;
-
-    this.kingdomPiles.push(Pile.generate(Copper, 60 - 7 * this.players.length))
-    this.kingdomPiles.push(Pile.generate(Silver, 40));
-    this.kingdomPiles.push(Pile.generate(Gold, 30));
-    if (isColonyGame) {
-      this.kingdomPiles.push(Pile.generate(Platinum, 12));
-    }
-
-    const victoryPileSize = this.players.length <= 2 ? 8 : 12;
-
-    this.kingdomPiles.push(Pile.generate(Estate, victoryPileSize));
-    this.kingdomPiles.push(Pile.generate(Duchy, victoryPileSize));
-    const provincePile = Pile.generate(Province, victoryPileSize);
-    provincePile.endGameOnEmpty = true;
-    this.kingdomPiles.push(provincePile);
-    if (isColonyGame) {
-      const colonyPile = Pile.generate(Colony, victoryPileSize);
-      this.kingdomPiles.push(colonyPile);
-    }
-
-    this.kingdomPiles.push(Pile.generate(Smithy, 10));
-
-    for (let player of this.players) {
-      for (var i = 0; i < 7; i++) {
-        player.discard.push(new Copper());
-      }
-      for (var i = 0; i < 3; i++) {
-        player.discard.push(new Estate());
-      }
-    }
-
-    yield 'kindom generated';
-
-    for (let player of this.players) {
-      for (var i = 0; i < 5; i++) {
-        yield* player.drawCard();
-      }
-    }
-
   }
 
   isOver(): boolean {
@@ -210,6 +221,7 @@ export class Game {
 
         if (this.isOver()) {
           yield `Game over in turn ${turnCounter}`;
+          yield* this.countFinalScore();
           return;
         }
       }
@@ -219,8 +231,12 @@ export class Game {
         return;
       }
     }
+  }
 
-
+  *countFinalScore() {
+    for (let player of this.players) {
+      yield `player ${player.owner} scores: ${player.score()}`
+    }
   }
 
   buyCost(card: Card): number {

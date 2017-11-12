@@ -18,8 +18,8 @@
     ],
     "baseUrl": "src",
     "paths": {
-      "@scout/*": [
-        "app/*"
+      "@dominion/*": [
+        "dominion/*"
       ]
     }
   }

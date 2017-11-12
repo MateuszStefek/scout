@@ -1,6 +1,7 @@
-import { Card } from './card';
-import { GamePlayer } from '@scout/game';
-import * as _ from 'lodash';
+import { Card, CardConstructor, StandardPile } from '@dominion/card';
+import { GamePlayer } from '@dominion/game';
+import { CardRegistry } from '@dominion/cards/card.registry';
+
 
 export class Smithy extends Card {
   constructor() {
@@ -17,3 +18,5 @@ export class Smithy extends Card {
     }
   }
 }
+
+CardRegistry.ALL.registerStandardPile(Smithy);

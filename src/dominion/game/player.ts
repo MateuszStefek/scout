@@ -1,4 +1,4 @@
-import { GamePlayer, Game} from '@scout/game';
+import { GamePlayer, Game} from '@dominion/game';
 
 export class Player {
   constructor(public name: string) { }

@@ -1,4 +1,4 @@
-import { Card } from './card';
+import { Card } from '@dominion/card';
 
 export class Curse extends Card {
   constructor() {
@@ -6,4 +6,5 @@ export class Curse extends Card {
   }
 
   basicCost() { return 0; }
+
 }

@@ -1,14 +1,14 @@
-import { Player } from '@scout/game';
-import { Card, CardConstructor } from '@scout/cards';
+import { Player } from '@dominion/game';
 import {
   Silver, Gold,
   Province,
-  Smithy
+  Smithy,
+  Curse
+} from '@dominion/cards';
+import { GamePlayer, Game } from '@dominion/game';
+import { MayRevealCurseOnMountebank, MountebankUnderstandingPlayer } from '@dominion/cards/mountebank';
 
-} from '@scout/cards';
-import { GamePlayer, Game } from '@scout/game';
-
-export class BigMoneyAI extends Player {
+export class BigMoneyAI extends Player implements MountebankUnderstandingPlayer {
   private boughtSmithy = false;
   constructor(name: string) {
     super(name);
@@ -38,29 +38,37 @@ export class BigMoneyAI extends Player {
 
   *buyCards(state: GamePlayer) : IterableIterator<string> {
 
-
     while (state.buys > 0) {
       yield (`Thinking. Buys: ${state.buys}, coins: ${state.coin}`);
-      var selectedPile;
 
       if (!this.boughtSmithy) {
-        selectedPile = state.canBuy(Smithy);
-        if (selectedPile) {
-          yield* state.buy(selectedPile);
+        if (state.canBuy(Smithy)) {
+          yield* state.buy(Smithy);
           this.boughtSmithy = true;
           continue;
         }
       }
 
-      selectedPile = state.canBuy(Province) || state.canBuy(Gold) || state.canBuy(Silver);
-      if (selectedPile) {
-        yield* state.buy(selectedPile);
+      if (state.canBuy(Province)) {
+        yield* state.buy(Province);
+      } else if (state.canBuy(Gold)) {
+        yield* state.buy(Gold);
+      } else if (state.canBuy(Silver)) {
+        yield* state.buy(Silver);
       } else {
         break;
       }
     }
   }
 
-
+  *mayRevealCurseOnMountebank(state: GamePlayer) {
+    if (state.hand.findIndex(x => x instanceof Curse)) {
+      yield `Player ${this} reveals Curse`;
+      return true;
+    } else {
+      yield `Player ${this} doesn't reveal Curse`;
+      return false;
+    }
+  }
 
 }
